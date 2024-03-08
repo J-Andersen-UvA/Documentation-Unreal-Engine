@@ -167,6 +167,8 @@ Previously, we stored ``blendshape source" data, ``blendshape target" data, ``we
 
 This worked very well until we closed the editor, re-opened it and tried to view the datatable again. We get prompted by Unreal with an Error message. Pressing "Yes" at error message will open the asset without any of the struct information. Where did our data go? After a lot of fighting, we broke the entire project again and we had to rebuild through our IDE. Somehow that fixed the issue for the datatable as wel. Later into development the table was not useable in a blueprint, however. After further inspection we noticed that the ``RowStruct" of the datatable changed to something prepended with ``LIVECODE". Therefore we concluded that the entire problem was caused by the hotloading functionality of Unreal's compilation system. Disabling this functionality fixed the problem (more on best practices for compiling in Section \ref{CompilingAndBuilding}).
 
+\subsection{Exporting/importing Datatables}
+When exporting a datatable, you might be tempted to export it the same way you would export any other asset. That doesn't work however. Simply export it as csv or json in order to import it in a new project. In the new project, create a new datatable, open it, and use the reimport button to import the csv or json.
 
 %-------------------------------------------------------------------------------
 %	REFERENTIES
