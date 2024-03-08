@@ -140,7 +140,7 @@ If we open a new project that is broken, Unreal Engine will prompt us if he can 
 \end{itemize}
 
 \section{Thoughts on using C++, Python, and Blueprints}
-\todo{write something}
+After fighting a bit in Unreal with Python, C++, and Blueprints, we have formed thoughts on how to use and when to apply these tools. For example, C++ has nice integration with Blueprints, and it seems to be the normal way of coding in Unreal Engine. We have seen other code bases that integrate both. Therefore, we will not migrate everything to C++, but we will integrate C++ into our workflow for Unreal Engine. We can say similar things about Python. It has its own strengths, especially when coupling it with our other code that already use sockets to communicate. It is however, rather slow if we try to insert functions on every tick. With these thoughts and experiences, we decided that we will need to make careful considerations before picking our "tool" to tackle a problem.
 
 \section{Bugs and fixes}
 In the "Bugs and Fixes" section, we address challenges we encountered in Unreal Engine development hopefully along with their solutions.
