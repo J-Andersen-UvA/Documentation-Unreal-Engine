@@ -145,6 +145,82 @@ If we open a new project that is broken, Unreal Engine will prompt us if he can 
 \section{Thoughts on using C++, Python, and Blueprints}
 After fighting a bit in Unreal with Python, C++, and Blueprints, we have formed thoughts on how to use and when to apply these tools. For example, C++ has nice integration with Blueprints, and it seems to be the normal way of coding in Unreal Engine. We have seen other code bases that integrate both. Therefore, we will not migrate everything to C++, but we will integrate C++ into our workflow for Unreal Engine. We can say similar things about Python. It has its own strengths, especially when coupling it with our other code that already use sockets to communicate. It is however, rather slow if we try to insert functions on every tick. With these thoughts and experiences, we decided that we will need to make careful considerations before picking our "tool" to tackle a problem.
 
+\section{Animation editing}
+Sometimes, motioncaptured animations need to be altered by hand. This section goes over how we alter animations within Unreal Engine. After importing the animations into Unreal Engine, we will the fix the animation within Unreal Engine's ``animation sequencer" (figure \ref{fig:animationsequencer}). Since the animations are baked onto the skeleton, the process of fixing the animation requires us to alter the orientation and position of the individual bones themselves. This method offers a more straightforward means of intervention compared to modifying marker data. When editing marker data, alterations become evident only after the animation is re-solved. In contrast, when addressing problematic frames and bones in this context, we can directly modify the animation. Because the alterations will be additive onto the rig, we are able to add new movements onto a bone without having to redo the entire animation. Note however, that not every animation issue can be solved with the animation sequencer. For example, extreme jitters would take too long to fix by hand.
+
+Following is a step-by-step guide on altering animations through Unreal Engine's animations sequencer:
+\begin{enumerate}
+    \item Either open the animation by selecting it in the \say{level sequencer}, or open the animation and in the top \say{edit in sequencer} drop-down menu select \say{Edit With FK Control Rig}. Both sequencers are the same, but the latter doesn't require you to add the avatar to the scene by hand. For the first option make sure to bake the animation onto a FK Control Rig by right clicking the skeleton in the sequencer and selecting the \say{Edit With FK Control Rig} option.
+    \item In the sequencer, add an additive section to the \say{FKControlRig} in the sequencer.
+    \item Beginning with the first frame displaying odd behaviour, select the bone closest to the root displaying the abnormality or which you want to alter and create a new key-frame on the additive section in the control rig. Reposition and rotate the bone to align it with the original actor's pose. Repeat this process for all child bones. Following this, inspect the final frame of the anomalous movement. The modifications made to the initial abnormal frame will propagate throughout the animation. To restrict these alterations solely to the relevant portion, insert an additional key-frame at this specific frame and reset the additive movements. Subsequently, by adjusting the curve between these two key-frames, we can make the alterations look more natural. If the result does not appear sufficiently natural, further key-frames may be required either within or outside the altered segment to achieve a smoother transition of the adjustments. Similar to data cleaning with Shogun Post, this task is typically performed by experienced professionals, and it may require some level of practice and proficiency.
+    \item Finally, when the results are adequate, right click on the skeleton in the level sequencer and select ``Bake Animation Sequence".
+\end{enumerate}
+
+\begin{figure}[hbt!]
+    \centering
+    \includegraphics[width=.8\textwidth]{imgs/CleaningUpAnAnimation.png}
+    \caption{The animation sequencer with an example frame being altered by using bone rotations and key-frames.}
+    \label{fig:animationsequencer}
+\end{figure}
+
+\subsection{Animation bone group Blending using the sequencer}
+With multiple animations we have the ability to blend between them and over each other, but what if we want to do that only for a specific bone group? Using ``Bone Grouping" or ``Animation Layering" we can force animations to play only on their relative group. Documentation wise, there is not a whole lot to go of of in Unreal Engine. Many people have made posts and videos about this, but after searching for a long while I was only able to find a single post originating from Unreal Engine 4 that goes over this topic in conjunction with the Level Sequencer. Which is exactly what we want if we want to alter animations by hand. The following link goes over this, so please have a read: \url{https://forums.unrealengine.com/t/is-it-possible-to-use-multiple-animation-slots-in-sequencer-to-layer-animations/427244/2}. In order to showcase how to do this as simple as possible and to add more difficult blendings afterwards, I have created the following step by step guide:
+\begin{enumerate}
+    \item Create an animation blueprint.
+    \item In the Anim Slot Manager tab (can be found either in the anim graph using the window options, or in the animation itself) add an Anim Slot with the name of the parent bone which hierarchy will be grouped. In the current example, ``RightHand" is used.
+    \item In the anim graph add the following:
+    \begin{itemize}
+        \item 2 slot ``DefaultSlot" nodes.\\Change one name to the corresponding Anim Slot to group (for example ``RightHand").
+        \item A layered blend per bone node.\\In the Details tab, add a Layer with the same name as the Anim Slot (for example ``RightHand").
+    \end{itemize}
+    If you have applied these steps, the resulting graph will look like the one in figure \ref{fig:boneGrouping}.
+    \begin{figure}[hbt!]
+        \centering
+        \includegraphics[width=.9\textwidth]{imgs/animgraphsimple.png}
+        \caption{The simplest animation graph that applies bone grouping.}
+        \label{fig:boneGrouping}
+    \end{figure}
+    \item Now in the normal view (world/level view) in Unreal Engine, drag the animation blueprint into the level.
+    \item Open the Sequencer.
+    \item Add the dragged animation blueprint to the sequencer.
+    \item Add the 2 animations to be grouped (see figure \ref{fig:animSeq}).
+    \begin{figure}[hbt!]
+        \centering
+        \includegraphics[width=.9\textwidth]{imgs/animationSequencer.png}
+        \caption{Adding an animation to the sequencer.}
+        \label{fig:animSeq}
+    \end{figure}
+    \item Right click the animation that we want to group, go to preferences, then type in the name of the group it should exist on (see figure \ref{fig:boneGroupPreference}).
+    \begin{figure}[hbt!]
+        \centering
+        \includegraphics[width=.9\textwidth]{imgs/bonegroup.png}
+        \caption{The location of the bonegroup option in the sequencer.}
+        \label{fig:boneGroupPreference}
+    \end{figure}
+\end{enumerate}
+\textit{Hint, we can define as many animation slots/bone groups as we want by adding layers to the layered blend per bone node.}
+
+Congratulations, this is how we layer blends per bone in the level sequencer.
+Now, if we want to take this further and for example blend the animation on the RightHand using 2 animations we can do the following:
+\begin{enumerate}
+    \item Add another animation to the sequencer.
+    \item Define the animation slot in the preference menu (see figure \ref{fig:boneGroupPreference}).
+    \item Tweak the weights between the 2 animations playing on the animation slot using the ``Weight" option in the level sequencer (see figure \ref{fig:weights}).
+    \begin{figure}[hbt!]
+        \centering
+        \includegraphics[width=.9\textwidth]{imgs/weights.png}
+        \caption{The location of the weights option in the sequencer.}
+        \label{fig:weights}
+    \end{figure}
+\end{enumerate}
+
+
+\section{Rendering level sequences}
+When we have created a level sequence that we are happy with, we have the ability to render the sequence as a video or frame sequence. To this end we use the ``Movie Render Queue" plugin.
+
+\subsection{Blurry videos}
+Make sure the camera is not set to tracking an individual avatar, the movements will create a blurry effect. Just set the camera to have no focus method.
+
 \section{Bugs and fixes}
 In the "Bugs and Fixes" section, we address challenges we encountered in Unreal Engine development hopefully along with their solutions.
 
