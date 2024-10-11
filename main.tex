@@ -163,7 +163,7 @@ Following is a step-by-step guide on altering animations through Unreal Engine's
     \label{fig:animationsequencer}
 \end{figure}
 
-\subsection{Animation bone group Blending using the sequencer}
+\subsection{Animation bone group Blending using the sequencer}\label{sec:bonegrouping}
 With multiple animations we have the ability to blend between them and over each other, but what if we want to do that only for a specific bone group? Using ``Bone Grouping" or ``Animation Layering" we can force animations to play only on their relative group. Documentation wise, there is not a whole lot to go of of in Unreal Engine. Many people have made posts and videos about this, but after searching for a long while I was only able to find a single post originating from Unreal Engine 4 that goes over this topic in conjunction with the Level Sequencer. Which is exactly what we want if we want to alter animations by hand. The following link goes over this, so please have a read: \url{https://forums.unrealengine.com/t/is-it-possible-to-use-multiple-animation-slots-in-sequencer-to-layer-animations/427244/2}. In order to showcase how to do this as simple as possible and to add more difficult blendings afterwards, I have created the following step by step guide:
 \begin{enumerate}
     \item Create an animation blueprint.
@@ -216,10 +216,24 @@ Now, if we want to take this further and for example blend the animation on the 
 
 
 \section{Rendering level sequences}
-When we have created a level sequence that we are happy with, we have the ability to render the sequence as a video or frame sequence. To this end we use the ``Movie Render Queue" plugin.
+When we have created a level sequence that we are happy with, we have the ability to render the sequence as a video or frame sequence. To this end we use the ``Movie Render Queue" plugin, so make sure that is enabled. Then add a camera to the sequencer using the ``Create camera" option in the sequencer (see figure \ref{fig:createCam}). In the details panel you can alter how the camera is configured. Next, render the video by selecting the ``Render Movie" option next to the Create camera option. The Movie Render Queue plugin should open, and here you can alter how the movie should be rendered. This is personal preference, but I took the settings from the following video as a baseline \url{https://www.youtube.com/watch?v=JchOd6vGAy0}. Some formats do not immediately render to a viewable file. For example, .exr will result in a whole sequence of files. We can take these type of formats into video editing software such as Davinci resolve to further alter the appearance of the video before rendering the final video there.
+
+\begin{figure}[hbt!]
+    \centering
+    \includegraphics[width=.9\textwidth]{imgs/addcamera.png}
+    \caption{The location of the create camera option in the sequencer.}
+    \label{fig:createCam}
+\end{figure}
 
 \subsection{Blurry videos}
-Make sure the camera is not set to tracking an individual avatar, the movements will create a blurry effect. Just set the camera to have no focus method.
+Make sure the camera is not set to tracking an individual avatar for the ``focus setting". Because our actors are usually stationary and the camera is very close, this will result in very blurry videos. Just set the camera to have no focus method.
+
+\subsection{Motion Blur}
+A weird bug is that motion blur is on by default even though the camera settings tell you that it is not. To fix this, turn on motion blur and set the amount to 0.
+
+\subsection{Dark videos}
+Looking through the camera view we are deceived by how the result will turn out. Often the resulting videos are much darker than what we view through the camera. To fix this, either use post-processing, brighten up the scene, or in Davinci resolve up the gamma.
+
 
 \section{Bugs and fixes}
 In the "Bugs and Fixes" section, we address challenges we encountered in Unreal Engine development hopefully along with their solutions.
@@ -245,6 +259,11 @@ This worked very well until we closed the editor, re-opened it and tried to view
 
 \subsection{Exporting/importing Datatables}
 When exporting a datatable, you might be tempted to export it the same way you would export any other asset. That doesn't work however. Simply export it as csv or json in order to import it in a new project. In the new project, create a new datatable, open it, and use the reimport button to import the csv or json.
+
+\subsection{Layering/blending animations with blendshapes}
+What if we want to take a face animation and combine it with a body animation? If we simply put both animations over each other it in the level sequencer we get weird results. It's almost as if all animations are halved. This is due to the fact that we are blending a static a-pose (coming from the face animation) with the body animation.
+
+\textit{Fix:} use the technique from section \ref{sec:bonegrouping}. Make an animation slot that only contains a leaf bone and bind the face animation to this slot.
 
 %-------------------------------------------------------------------------------
 %	REFERENTIES
