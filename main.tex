@@ -214,6 +214,15 @@ Now, if we want to take this further and for example blend the animation on the 
     \end{figure}
 \end{enumerate}
 
+\section{Driving blendshapes through the level sequence}
+Using the recordings for Live Link Face from the IPhone itself (.csv), we can reenact a Live Link Face stream by applying the ``LiveLinkFaceImporter" plugin. For a video explanation follow this link: \url{https://www.youtube.com/watch?v=TKd4iSEbWNI}.
+When scrubbing through the imported level sequence we can observe in the Live Link tab that a new stream is created. We can catch this stream like any other live link stream and ennact upon it (see figure \ref{fig:llfimporter}).
+\begin{figure}[hbt!]
+    \centering
+    \includegraphics[width=.9\textwidth]{imgs/livelinkfaceimporter.png}
+    \caption{Scrubbing through the imported .csv level sequence from Live Link Face.}
+    \label{fig:llfimporter}
+\end{figure}
 
 \section{Rendering level sequences}
 When we have created a level sequence that we are happy with, we have the ability to render the sequence as a video or frame sequence. To this end we use the ``Movie Render Queue" plugin, so make sure that is enabled. Then add a camera to the sequencer using the ``Create camera" option in the sequencer (see figure \ref{fig:createCam}). In the details panel you can alter how the camera is configured. Next, render the video by selecting the ``Render Movie" option next to the Create camera option. The Movie Render Queue plugin should open, and here you can alter how the movie should be rendered. This is personal preference, but I took the settings from the following video as a baseline \url{https://www.youtube.com/watch?v=JchOd6vGAy0}. Some formats do not immediately render to a viewable file. For example, .exr will result in a whole sequence of files. We can take these type of formats into video editing software such as Davinci resolve to further alter the appearance of the video before rendering the final video there.
