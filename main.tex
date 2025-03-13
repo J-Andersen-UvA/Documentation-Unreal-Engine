@@ -22,6 +22,7 @@ columns=flexible,
 breaklines=true
 }
 
+
 \usepackage[style=authoryear-comp]{biblatex}
 \addbibresource{references.bib}
 
@@ -142,8 +143,44 @@ If we open a new project that is broken, Unreal Engine will prompt us if he can 
     \item Put the plugin back and rebuild.
 \end{itemize}
 
-\section{Thoughts on using C++, Python, and Blueprints}
-After fighting a bit in Unreal with Python, C++, and Blueprints, we have formed thoughts on how to use and when to apply these tools. For example, C++ has nice integration with Blueprints, and it seems to be the normal way of coding in Unreal Engine. We have seen other code bases that integrate both. Therefore, we will not migrate everything to C++, but we will integrate C++ into our workflow for Unreal Engine. We can say similar things about Python. It has its own strengths, especially when coupling it with our other code that already use sockets to communicate. It is however, rather slow if we try to insert functions on every tick. With these thoughts and experiences, we decided that we will need to make careful considerations before picking our "tool" to tackle a problem.
+\section{Using C++, Python, and Blueprints}
+After fighting a bit in Unreal with Python, C++, and Blueprints, we have formed thoughts on how to use and when to apply these tools. For example, C++ has nice integration with Blueprints, and it seems to be the normal way of coding in Unreal Engine. We have seen other code bases that integrate both. Therefore, we will not migrate everything to C++, but we will integrate C++ into our workflow for Unreal Engine. We can say similar things about Python. It has its own strengths, especially when coupling it with our other code that already use sockets to communicate.
+
+\subsection{Python executing editor functionalities in Unreal Engine}\label{PyUE}
+In Unreal Engine, many API calls, especially those related to the game world, UI updates, and editor functions, must be called from the main thread. This makes it difficult to use a waiting/listening Python program. If we wait on the main thread, the entire engine stalls making it impossible to wait for things to execute in the engine and wait for it. There is a workaround however. In Unreal Engine Python scripting, especially in editor contexts, hooking into the tick method (such as using register\_slate\_post\_tick\_callback) is a common approach for executing continuous or periodic tasks. This approach is necessary due to the nature of Unreal Engine's architecture and threading model.
+Creating a new Python thread to handle functionality might seem like a simpler solution, but it poses several issues in the Unreal Engine environment:
+\begin{itemize}
+    \item Thread safety: Unreal Engine is not thread-safe by default. Many of its APIs cannot be called safely from a separate thread. This includes accessing game objects, modifying the world, and interacting with the editor UI.
+    \item Blocking operations: If you use blocking calls (e.g., waiting for a network response) on the main thread, it would freeze the UI and the entire editor/game. Conversely, if you use a new thread for non-blocking operations, you still need a way to synchronize the results back to the main thread.
+\end{itemize}
+
+\textbf{Note:} using the tick function comes with its own difficulties. For example, a file saved on a tick is not always accessible by Unreal Engine's API in the same tick. It seems that the file structure is only updated after a tick. Please keep un-intuitive issues like this in mind when coding with Python in Unreal Engine.
+
+\subsection{Combining Python and Blueprints}
+Not all functionalities are easily accessible through Python, and sometimes you don't want to bother with setting up an entire tick hook either. Some implementations of Unreal Engine functionalities are easier through Blueprints. What if we want the advantages of Blueprints and Python? We have two options:
+\begin{itemize}
+    \item Python nodes within Blueprints.\\
+    If you have the Python Editor Script plugin enabled, you should be able to see Python nodes exclusively within Utility blueprints only - not regular blueprints. Editor utility blueprints, widgets, or even action asset utilities support the Python nodes. Python is unavailable in regular blueprints unfortunately. 
+    \item Event calls to Blueprint events within Python.\\
+    If you have an actor added to the scene, and you have loaded the actor onto a variable in Python using Unreal Python functions such as \textit{unreal.EditorLevelLibrary.get\_all\_level\_actors()} you can access any method/custom-event in its blueprint using the following code: \textit{replay\_actor.call\_method("methodName", args=("argument1",))}
+\end{itemize}
+
+\subsection{Installing packages with pip and UE}
+To install Python packages in Unreal Engine, use the following command in the terminal, replacing $<$package$>$ with the desired package name:
+"C:\textbackslash Program Files\textbackslash Epic Games\textbackslash UE\_5.5\textbackslash Engine \textbackslash Binaries\textbackslash ThirdParty\textbackslash Python3\textbackslash Win64\textbackslash python.exe" -m pip install $<$package$>$
+For our own Python code, you need to install the following packages:
+\begin{itemize}
+    \item requests
+    \item httpx
+    \item pyyaml
+    \item websocket
+    \item websockets
+    \item websocket-client
+    \item flask
+    \item flask\_cors
+\end{itemize}
+Simply run the command for each package to ensure proper functionality in your UE project.
+
 
 \section{Animation editing}
 Sometimes, motioncaptured animations need to be altered by hand. This section goes over how we alter animations within Unreal Engine. After importing the animations into Unreal Engine, we will the fix the animation within Unreal Engine's ``animation sequencer" (figure \ref{fig:animationsequencer}). Since the animations are baked onto the skeleton, the process of fixing the animation requires us to alter the orientation and position of the individual bones themselves. This method offers a more straightforward means of intervention compared to modifying marker data. When editing marker data, alterations become evident only after the animation is re-solved. In contrast, when addressing problematic frames and bones in this context, we can directly modify the animation. Because the alterations will be additive onto the rig, we are able to add new movements onto a bone without having to redo the entire animation. Note however, that not every animation issue can be solved with the animation sequencer. For example, extreme jitters would take too long to fix by hand.
@@ -166,7 +203,7 @@ Following is a step-by-step guide on altering animations through Unreal Engine's
 \subsection{Animation bone group Blending using the sequencer}\label{sec:bonegrouping}
 With multiple animations we have the ability to blend between them and over each other, but what if we want to do that only for a specific bone group? Using ``Bone Grouping" or ``Animation Layering" we can force animations to play only on their relative group. Documentation wise, there is not a whole lot to go of of in Unreal Engine. Many people have made posts and videos about this, but after searching for a long while I was only able to find a single post originating from Unreal Engine 4 that goes over this topic in conjunction with the Level Sequencer. Which is exactly what we want if we want to alter animations by hand. The following link goes over this, so please have a read: \url{https://forums.unrealengine.com/t/is-it-possible-to-use-multiple-animation-slots-in-sequencer-to-layer-animations/427244/2}. In order to showcase how to do this as simple as possible and to add more difficult blendings afterwards, I have created the following step by step guide:
 \begin{enumerate}
-    \item Create an animation blueprint.
+    \item Create an animation blueprint on the skeletalMesh of the avatar where you want to apply the blend.
     \item In the Anim Slot Manager tab (can be found either in the anim graph using the window options, or in the animation itself) add an Anim Slot with the name of the parent bone which hierarchy will be grouped. In the current example, ``RightHand" is used.
     \item In the anim graph add the following:
     \begin{itemize}
@@ -180,6 +217,7 @@ With multiple animations we have the ability to blend between them and over each
         \caption{The simplest animation graph that applies bone grouping.}
         \label{fig:boneGrouping}
     \end{figure}
+    \item Compile the blueprint.
     \item Now in the normal view (world/level view) in Unreal Engine, drag the animation blueprint into the level.
     \item Open the Sequencer.
     \item Add the dragged animation blueprint to the sequencer.
@@ -190,7 +228,7 @@ With multiple animations we have the ability to blend between them and over each
         \caption{Adding an animation to the sequencer.}
         \label{fig:animSeq}
     \end{figure}
-    \item Right click the animation that we want to group, go to preferences, then type in the name of the group it should exist on (see figure \ref{fig:boneGroupPreference}).
+    \item Right click the animation that we want to group, go to properties, then type in the name of the group it should exist on (see figure \ref{fig:boneGroupPreference}).
     \begin{figure}[hbt!]
         \centering
         \includegraphics[width=.9\textwidth]{imgs/bonegroup.png}
@@ -204,7 +242,7 @@ Congratulations, this is how we layer blends per bone in the level sequencer.
 Now, if we want to take this further and for example blend the animation on the RightHand using 2 animations we can do the following:
 \begin{enumerate}
     \item Add another animation to the sequencer.
-    \item Define the animation slot in the preference menu (see figure \ref{fig:boneGroupPreference}).
+    \item Define the animation slot in the properties menu (see figure \ref{fig:boneGroupPreference}).
     \item Tweak the weights between the 2 animations playing on the animation slot using the ``Weight" option in the level sequencer (see figure \ref{fig:weights}).
     \begin{figure}[hbt!]
         \centering
@@ -215,6 +253,8 @@ Now, if we want to take this further and for example blend the animation on the 
 \end{enumerate}
 
 \section{Driving blendshapes through the level sequence}
+This section is also discussed in the UnrealEngineLiveLinkPipeline documentation.
+
 Using the recordings for Live Link Face from the IPhone itself (.csv), we can reenact a Live Link Face stream by applying the ``LiveLinkFaceImporter" plugin. For a video explanation follow this link: \url{https://www.youtube.com/watch?v=TKd4iSEbWNI}.
 When scrubbing through the imported level sequence we can observe in the Live Link tab that a new stream is created. We can catch this stream like any other live link stream and ennact upon it (see figure \ref{fig:llfimporter}).
 \begin{figure}[hbt!]
@@ -223,6 +263,16 @@ When scrubbing through the imported level sequence we can observe in the Live Li
     \caption{Scrubbing through the imported .csv level sequence from Live Link Face.}
     \label{fig:llfimporter}
 \end{figure}
+
+\subsection{Rendering Live Link sourced (blendshape) animations}
+When rendering we will not have the ability to simulate a Live Link Source. Therefore, any animation you see through the sequencer using this source will not be outputted on the avatar. To circumvent this we can bake the animations before rendering and using that animation to render.
+\begin{enumerate}
+    \item Make a sequence with the Live Link CSV sequence you want and the avatar with the animation blueprint that reads the Live Link Source.
+    \item Confirm that the CSV animations are working by scrubbing the sequence.
+    \item Right click in the level sequence on the correct skeletal mesh that we need to extract the animations from.
+    \item Click ``Bake Animation Sequence" and save the new animation.
+    \item Make a new sequence or alter the current sequence using this animation and you should be able to render as usual.
+\end{enumerate}
 
 \section{Rendering level sequences}
 When we have created a level sequence that we are happy with, we have the ability to render the sequence as a video or frame sequence. To this end we use the ``Movie Render Queue" plugin, so make sure that is enabled. Then add a camera to the sequencer using the ``Create camera" option in the sequencer (see figure \ref{fig:createCam}). In the details panel you can alter how the camera is configured. Next, render the video by selecting the ``Render Movie" option next to the Create camera option. The Movie Render Queue plugin should open, and here you can alter how the movie should be rendered. This is personal preference, but I took the settings from the following video as a baseline \url{https://www.youtube.com/watch?v=JchOd6vGAy0}. Some formats do not immediately render to a viewable file. For example, .exr will result in a whole sequence of files. We can take these type of formats into video editing software such as Davinci resolve to further alter the appearance of the video before rendering the final video there.
@@ -241,18 +291,22 @@ Make sure the camera is not set to tracking an individual avatar for the ``focus
 A weird bug is that motion blur is on by default even though the camera settings tell you that it is not. To fix this, turn on motion blur and set the amount to 0.
 
 \subsection{Dark videos}
-Looking through the camera view we are deceived by how the result will turn out. Often the resulting videos are much darker than what we view through the camera. To fix this, either use post-processing, brighten up the scene, or in Davinci resolve up the gamma.
+Looking through the camera view we are deceived by how the result will turn out. Often the resulting videos are much darker than what we view through the camera. To fix this, either use post-processing, brighten up the scene, or in Davinci resolve up the gamma. It is also often the case that some formats are handled differently in different software. EXR for example, is much darker in DaVinci resolve (\url{https://creativecow.net/forums/thread/openexr-way-too-dark-in-davinci/}).
 
 
 \section{Bugs and fixes}
 In the "Bugs and Fixes" section, we address challenges we encountered in Unreal Engine development hopefully along with their solutions.
 
-\subsection{C++ projects and third party plugins}\label{cppThirdPartyPluginsBug}
+\subsection{C++ projects and third party plugins / Migrating projects / Cannot build project}\label{cppThirdPartyPluginsBug}
+\subsubsection{Cannot build step 1} \url{https://www.youtube.com/watch?v=6mFhtvdYQWI}
+\subsubsection{Third party plugins}
 Using third party plugins enables us to focus on our own development. It does come with its own challenges, however. One of which we encountered when migrating to C++ based projects. When trying to compile a project that uses third party plugins from the Engine folder that are not in the marketplace we get reference errors, example:
 \begin{lstlisting}
 Expecting to find a type to be declared in a module rules named 'MoCapProLiveLink' in UE5Rules, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null.  This type must derive from the 'ModuleRules' type defined by Unreal Build Tool.
 \end{lstlisting}
 Most tips on the internet tell us to move the plugins to a project root folder called Plugins. This works, but it causes issues with the Git integration (see Section \ref{cloning} on how to fix this). One might think that we can add the module names to the build file, but in our case that did not help solve the issue.
+
+If the Plugin folder is not present, make it yourself.
 
 \subsection{Datatable bug}\label{datatableBug}
 Previously, we stored ``blendshape source" data, ``blendshape target" data, ``weight" data, and ``multiple blendshapes to drive" data separately within maps and arrays in blueprints. This is very redundant so we decided to move these structures to be encapsulated in a single C++ Struct. After coding this in C++ and creating a datatable out of this in Unreal Engine, we populated it with data (an example of a single entry can be seen in Figure \ref{fig:blendshapeStructExample}).
@@ -273,6 +327,26 @@ When exporting a datatable, you might be tempted to export it the same way you w
 What if we want to take a face animation and combine it with a body animation? If we simply put both animations over each other it in the level sequencer we get weird results. It's almost as if all animations are halved. This is due to the fact that we are blending a static a-pose (coming from the face animation) with the body animation.
 
 \textit{Fix:} use the technique from section \ref{sec:bonegrouping}. Make an animation slot that only contains a leaf bone and bind the face animation to this slot.
+
+\subsection{Python tick not saving file?}
+See section \ref{PyUE} for more details.
+
+\subsection{Curve node not animating morph targets}
+Did you make sure that you enabled the materials to be used with morphtargets (\url{https://forums.unrealengine.com/t/material-needs-morph-support/12355})?
+
+Lastly, it is important that the skeleton has the curves to control the morphtargets. If the curves are missing the animation will not be able to control the morphtargets. When the curves are missing we see figure \ref{fig:noCurves}. What we want to see is figure \ref{fig:curves}. The curve names should be the same as the blendshape names of the avatar. \textit{Tip:} instead of adding them by hand, copy paste them over from an avatar that already has them. If the names need to be changed, then alter them. I want to do this automatically, but I've yet to find a way (keep track of forum post for updates on this: \url{https://forums.unrealengine.com/t/how-to-add-curves-on-a-skeletal-mesh-programatically/2332340}). Lastly, I've asked why we even need curves for morphtargets in the following post: \url{https://forums.unrealengine.com/t/why-do-we-need-animation-curves-on-the-skeleton-for-controlling-morph-targets/2374534}.
+\begin{figure}[hbt!]
+    \centering
+    \includegraphics[width=\textwidth]{imgs/nocurves.png}
+    \caption{No curves on a skeleton.}
+    \label{fig:noCurves}
+\end{figure}
+\begin{figure}[hbt!]
+    \centering
+    \includegraphics[width=\textwidth]{imgs/curves.png}
+    \caption{What we expect, correct curves on the skeleton.}
+    \label{fig:curves}
+\end{figure}
 
 %-------------------------------------------------------------------------------
 %	REFERENTIES
